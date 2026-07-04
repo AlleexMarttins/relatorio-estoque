@@ -679,7 +679,13 @@ class TableMixin:
     def _update_note_fields(self, note, fields):
         note_id = note.get("id")
         if note_id:
-            utils.update_note(note_id, fields)
+            updated_notes = utils.update_note(note_id, fields)
+            note.update(fields)
+            updated_note = next(
+                (item for item in updated_notes if str(item.get("id")) == str(note_id)),
+                note,
+            )
+            utils.acknowledge_note_change(updated_note)
             return True
 
         notes = utils.load_notes()
@@ -689,7 +695,13 @@ class TableMixin:
                 item.update(fields)
                 edited = True
                 break
-        return self._save_notes_list(notes) if edited else False
+        if not edited:
+            return False
+        saved = self._save_notes_list(notes)
+        if saved:
+            note.update(fields)
+            utils.acknowledge_note_change(note)
+        return saved
 
     def _warn_note_locked(self):
         QtWidgets.QMessageBox.warning(

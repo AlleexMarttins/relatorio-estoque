@@ -13,7 +13,6 @@ from system.ui_components import (
     GradientCanvas,
     APP_FONT_FAMILY,
     PALETTE,
-    animate_widget_entry,
     apply_shadow,
     install_messagebox_tweaks,
     make_panel,
@@ -62,7 +61,11 @@ class EstoqueApp(
         QtCore.QTimer.singleShot(120, self.update_recent_list)
         QtCore.QTimer.singleShot(120, self.warning_month_filter)
 
-        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), self).activated.connect(self._handle_escape)
+        self._escape_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Escape),
+            self,
+        )
+        self._escape_shortcut.activated.connect(self._handle_escape)
         self._setup_tooltip_support()
         self._bind_search_suggestions()
         utils.poll_notifications(self)
@@ -606,11 +609,11 @@ class EstoqueApp(
         )
 
     def _show_blocking_dialog(self, dialog, y_offset=18):
+        del y_offset
         self._prepare_dialog(dialog, modal=True)
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
-        QtCore.QTimer.singleShot(0, lambda d=dialog, offset=y_offset: animate_widget_entry(d, y_offset=offset))
 
     def _exec_modal_dialog(self, dialog, y_offset=18):
         self._prepare_dialog(dialog, modal=True)
@@ -717,19 +720,19 @@ class EstoqueApp(
         self.combo_cnpj.setCurrentIndex(0)
         self.entry_nf.clear()
         self._show_blocking_dialog(dialog, y_offset=24)
-        QtCore.QTimer.singleShot(180, self.entry_nf.setFocus)
+        self.entry_nf.setFocus(QtCore.Qt.OtherFocusReason)
 
     def show_manage_suppliers(self):
         self.refresh_suppliers_listbox()
         dialog = self._ensure_suppliers_dialog()
         self._show_blocking_dialog(dialog, y_offset=20)
-        QtCore.QTimer.singleShot(180, self.supplier_name_entry.setFocus)
+        self.supplier_name_entry.setFocus(QtCore.Qt.OtherFocusReason)
 
     def show_manage_conferentes(self):
         self.refresh_conferentes_listbox()
         dialog = self._ensure_conferentes_dialog()
         self._show_blocking_dialog(dialog, y_offset=20)
-        QtCore.QTimer.singleShot(180, self.conf_name_entry.setFocus)
+        self.conf_name_entry.setFocus(QtCore.Qt.OtherFocusReason)
 
     def on_close(self):
         self.close()

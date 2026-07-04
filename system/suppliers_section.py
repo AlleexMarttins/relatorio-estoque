@@ -21,7 +21,11 @@ class SuppliersMixin:
         self._build_manage_suppliers(body)
         layout.addWidget(body)
 
-        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), dialog).activated.connect(dialog.close)
+        dialog._escape_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Escape),
+            dialog,
+        )
+        dialog._escape_shortcut.activated.connect(dialog.close)
         self._suppliers_dialog = dialog
         return dialog
 

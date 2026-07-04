@@ -83,7 +83,11 @@ class FormsMixin:
         self._build_add_form(body)
         layout.addWidget(body)
 
-        QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key_Escape), dialog).activated.connect(self.action_close_form)
+        dialog._escape_shortcut = QtGui.QShortcut(
+            QtGui.QKeySequence(QtCore.Qt.Key_Escape),
+            dialog,
+        )
+        dialog._escape_shortcut.activated.connect(self.action_close_form)
         self._add_form_dialog = dialog
         return dialog
 
@@ -144,7 +148,16 @@ class FormsMixin:
                 QtWidgets.QMessageBox.warning(self, "Duplicado", f"A nota {nf_number} ja existe!")
                 return
 
-            utils.save_note(note)
+            saved_notes = utils.save_note(note)
+            saved_note = next(
+                (
+                    item
+                    for item in saved_notes
+                    if str(item.get("nf_number")) == str(note.get("nf_number"))
+                ),
+                note,
+            )
+            utils.acknowledge_note_change(saved_note)
             self.refresh_table()
             QtWidgets.QMessageBox.information(self, "Sucesso", "Nota salva com sucesso.")
             Toast(self, f"Nota {note.get('nf_number')} adicionada por {user_name}")

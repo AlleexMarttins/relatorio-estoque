@@ -1,5 +1,3 @@
-import sys
-
 from PySide6 import QtCore, QtGui, QtWidgets
 
 PALETTE = {
@@ -530,135 +528,22 @@ class PillDelegate(QtWidgets.QStyledItemDelegate):
         painter.restore()
 
 
-class Toast(QtWidgets.QWidget):
-    active_toasts = []
-    _tray_icon = None
-
+class Toast:
+    """Show transient feedback using a window-owned Qt status bar."""
     def __init__(self, parent, text, timeout_ms=4200):
-        super().__init__(None)
-        if self._show_native_notification(parent, text):
+        window = parent
+        if isinstance(parent, QtWidgets.QApplication):
+            window = parent.activeWindow()
+        elif isinstance(parent, QtWidgets.QWidget):
+            window = parent.window()
+
+        if not isinstance(window, QtWidgets.QMainWindow):
             return
 
-        self.setWindowFlags(
-            QtCore.Qt.ToolTip
-            | QtCore.Qt.FramelessWindowHint
-            | QtCore.Qt.WindowStaysOnTopHint
+        status_bar = window.statusBar()
+        status_bar.setSizeGripEnabled(False)
+        status_bar.setStyleSheet(
+            f"QStatusBar {{ background: {PALETTE['panel_alt']}; color: {PALETTE['text']}; "
+            f"border-top: 1px solid {PALETTE['border']}; padding: 4px 10px; }}"
         )
-
-        frame = make_panel(self, "toast")
-        layout = QtWidgets.QHBoxLayout(frame)
-        layout.setContentsMargins(14, 10, 10, 10)
-        layout.setSpacing(10)
-
-        accent = QtWidgets.QFrame(frame)
-        accent.setFixedWidth(5)
-        accent.setStyleSheet(
-            f"background: {PALETTE['accent']}; border-radius: 3px;"
-        )
-        layout.addWidget(accent)
-
-        label = QtWidgets.QLabel(text, frame)
-        label.setWordWrap(True)
-        label.setProperty("toastText", True)
-        layout.addWidget(label, 1)
-
-        close_btn = QtWidgets.QPushButton("x", frame)
-        close_btn.setFixedSize(22, 22)
-        close_btn.setProperty("quiet", True)
-        close_btn.clicked.connect(self._close)
-        layout.addWidget(close_btn, 0, QtCore.Qt.AlignTop)
-
-        outer = QtWidgets.QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(frame)
-
-        self.setStyleSheet(
-            "QFrame[card=\"true\"][kind=\"toast\"] {"
-            "background: rgba(11, 23, 40, 242);"
-            "border: 1px solid rgba(255, 255, 255, 24);"
-            "border-radius: 16px;"
-            "}"
-            "QLabel[toastText=\"true\"] {"
-            f"color: {PALETTE['text']};"
-            "font-size: 12px;"
-            "font-weight: 500;"
-            "}"
-            "QPushButton[quiet=\"true\"] {"
-            "background: rgba(255, 255, 255, 0.06);"
-            "border: none;"
-            "border-radius: 11px;"
-            f"color: {PALETTE['text']};"
-            "padding: 0px;"
-            "}"
-        )
-
-        apply_shadow(frame, blur=26, y_offset=12, alpha=90)
-
-        self.adjustSize()
-        self._position(parent)
-        Toast.active_toasts.append(self)
-        self.show()
-        QtCore.QTimer.singleShot(timeout_ms, self._close)
-
-    def _show_native_notification(self, parent, text):
-        if getattr(sys, "frozen", False):
-            return False
-        if not sys.platform.startswith("win"):
-            return False
-        if not QtWidgets.QSystemTrayIcon.isSystemTrayAvailable():
-            return False
-
-        app = QtWidgets.QApplication.instance()
-        if not app:
-            return False
-        app.setApplicationName("Relatorio do Estoque")
-        if hasattr(app, "setApplicationDisplayName"):
-            app.setApplicationDisplayName("Relatorio do Estoque")
-
-        try:
-            import ctypes
-
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("RelatorioEstoque.App")
-        except Exception:
-            pass
-
-        icon = QtGui.QIcon()
-        if parent and hasattr(parent, "windowIcon"):
-            icon = parent.windowIcon()
-        if icon.isNull():
-            icon = app.windowIcon()
-        if icon.isNull():
-            icon = parent.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxInformation) if parent else QtGui.QIcon()
-
-        if Toast._tray_icon is None:
-            Toast._tray_icon = QtWidgets.QSystemTrayIcon(icon, app)
-            Toast._tray_icon.setToolTip("Relatorio do Estoque")
-            Toast._tray_icon.show()
-        else:
-            Toast._tray_icon.setIcon(icon)
-
-        Toast._tray_icon.showMessage(
-            "Relatorio do Estoque",
-            text,
-            QtWidgets.QSystemTrayIcon.Information,
-            5000,
-        )
-        return True
-
-    def _position(self, parent):
-        screen = None
-        if parent and parent.windowHandle():
-            screen = parent.windowHandle().screen()
-        if not screen:
-            screen = QtGui.QGuiApplication.primaryScreen()
-        rect = screen.availableGeometry()
-
-        offset = sum(t.height() + 12 for t in Toast.active_toasts)
-        x = rect.right() - self.width() - 22
-        y = rect.bottom() - self.height() - 28 - offset
-        self.move(x, y)
-
-    def _close(self):
-        if self in Toast.active_toasts:
-            Toast.active_toasts.remove(self)
-        self.close()
+        status_bar.showMessage(str(text), timeout_ms)

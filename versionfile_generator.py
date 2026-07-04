@@ -1,4 +1,4 @@
-APP_VERSION = "1.1.8"
+APP_VERSION = "1.1.9"
 
 def versionfile_generator():
     template = f"""

@@ -75,7 +75,7 @@ def remove_conferente(conferente_id):
 
     # Se nao tiver vinculos, pode apagar
     supabase.table("conferentes").delete().eq("id", conferente_id).execute()
-    return {"success: True"}
+    return {"success": True}
 
 # ---------------- Notas ----------------
 def load_notes():
@@ -273,33 +273,44 @@ def resource_path(relative_path: str):
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
-def poll_notifications(app, state=[{"first_run": True, "signatures": {}}]):
+_notification_state = {"first_run": True, "signatures": {}}
+
+
+def _note_signature(note):
+    return (
+        str(note.get("id") or ""),
+        str(note.get("nf_number") or ""),
+        str(note.get("fornecedor_name") or ""),
+        str(note.get("cnpj") or ""),
+        str(note.get("recebido_por") or note.get("conferente_name") or ""),
+        str(note.get("data_chegada") or ""),
+        bool(note.get("conferido", False)),
+        str(note.get("conferido_por") or ""),
+        str(note.get("conferido_em") or ""),
+    )
+
+
+def acknowledge_note_change(note):
+    """Prevent the polling loop from repeating feedback for a local change."""
+    note_id = str((note or {}).get("id") or "")
+    if note_id:
+        _notification_state["signatures"][note_id] = _note_signature(note)
+
+
+def poll_notifications(app):
     """Verifica mudancas nas notas e atualiza a UI apenas quando necessario."""
     from PySide6 import QtCore
     from system.ui_components import Toast
 
-    def note_signature(note):
-        return (
-            str(note.get("id") or ""),
-            str(note.get("nf_number") or ""),
-            str(note.get("fornecedor_name") or ""),
-            str(note.get("cnpj") or ""),
-            str(note.get("recebido_por") or note.get("conferente_name") or ""),
-            str(note.get("data_chegada") or ""),
-            bool(note.get("conferido", False)),
-            str(note.get("conferido_por") or ""),
-            str(note.get("conferido_em") or ""),
-        )
-
     def check():
         try:
             notes = load_notes()
-            current = {str(n.get("id")): note_signature(n) for n in notes if n.get("id")}
-            previous = state[0]["signatures"]
+            current = {str(n.get("id")): _note_signature(n) for n in notes if n.get("id")}
+            previous = _notification_state["signatures"]
 
-            if state[0]["first_run"]:
-                state[0]["signatures"] = current
-                state[0]["first_run"] = False
+            if _notification_state["first_run"]:
+                _notification_state["signatures"] = current
+                _notification_state["first_run"] = False
                 return
 
             added = current.keys() - previous.keys()
@@ -330,14 +341,14 @@ def poll_notifications(app, state=[{"first_run": True, "signatures": {}}]):
 
             if (added or removed or changed) and hasattr(app, "refresh_table"):
                 diagnostic_log(
-                    "poll_notification_refresh_scheduled",
+                    "poll_notification_refresh",
                     added=len(added),
                     removed=len(removed),
                     changed=len(changed),
                 )
-                QtCore.QTimer.singleShot(0, app.refresh_table)
+                app.refresh_table()
 
-            state[0]["signatures"] = current
+            _notification_state["signatures"] = current
 
         except Exception as e:
             diagnostic_log("poll_notifications_error", error=repr(e))
@@ -347,6 +358,7 @@ def poll_notifications(app, state=[{"first_run": True, "signatures": {}}]):
     timer.setInterval(5000)
     timer.timeout.connect(check)
     timer.start()
+    app._notification_timer = timer
     check()
 
 config_path = resource_path(os.path.join("data", "credentials.json"))
