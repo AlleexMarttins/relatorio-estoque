@@ -398,7 +398,7 @@ def check_for_updates(root):
     from PySide6 import QtCore, QtWidgets
     from versionfile_generator import APP_VERSION
 
-    GITHUB_REPO = "AlleexMartinsT/invoiceManager"
+    GITHUB_REPO = "AlleexMarttins/relatorio-estoque"
     APP_DIR_NAME = "RelatorioEstoque"
     APP_EXE_NAMES = (
         "Relatorio de Estoque.exe",
